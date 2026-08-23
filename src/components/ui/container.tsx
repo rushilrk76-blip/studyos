@@ -1,0 +1,19 @@
+import type { ReactNode } from "react";
+
+/*
+  Keeps every section the same width and horizontal padding.
+  Use this instead of repeating max-w / px classes everywhere.
+*/
+export function Container({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`mx-auto w-full max-w-6xl px-5 sm:px-8 ${className}`}>
+      {children}
+    </div>
+  );
+}

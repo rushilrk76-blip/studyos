@@ -1,0 +1,174 @@
+@import "tailwindcss";
+
+/*
+  ────────────────────────────────────────────────
+  StudyOS design tokens
+  Tailwind CSS v4 reads its theme from this file.
+  Change a value here and it updates everywhere.
+  ────────────────────────────────────────────────
+*/
+@theme {
+  /* Fonts — the variables are injected by next/font in layout.tsx */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+
+  /* Surfaces — a warm "paper" look, calmer than pure white/gray */
+  --color-canvas: #faf8f4;
+  --color-surface: #ffffff;
+  --color-ink: #1b1a18;
+  --color-ink-soft: #55524d;
+  --color-ink-muted: #8a857d;
+  --color-line: #e9e4dc;
+
+  /* Brand accent — a deep forest/pine green (academic, trustworthy) */
+  --color-pine-50: #eef5f1;
+  --color-pine-100: #d9eae1;
+  --color-pine-200: #b3d5c5;
+  --color-pine-600: #177153; /* primary buttons, links */
+  --color-pine-700: #115c43; /* hover state */
+  --color-pine-900: #0c2e23; /* dark panels */
+
+  /* Secondary accent — warm amber, used very sparingly */
+  --color-sun-400: #f2b33d;
+  --color-sun-500: #e69c1c;
+
+  /* Friendly alert colour for validation messages */
+  --color-ember: #c2410c;
+
+  /* Tasteful entrance animations */
+  --animate-fade-up: fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-fade-in: fade-in 0.9s ease both;
+  --animate-float: float 7s ease-in-out infinite;
+  --animate-step-in: step-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-pop: pop 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(18px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+
+  /* Used when moving between onboarding steps */
+  @keyframes step-in {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Small celebratory scale-in (success checkmarks etc.) */
+  @keyframes pop {
+    from {
+      opacity: 0;
+      transform: scale(0.55);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+}
+
+/* Dark theme overrides — scoped to [data-theme="dark"].
+   Tailwind v4 utilities reference these variables, so switching
+   the attribute flips the whole app without any JS class toggling. */
+[data-theme="dark"] {
+  --color-canvas: #14130f;
+  --color-surface: #1e1d1a;
+  --color-ink: #e8e5e0;
+  --color-ink-soft: #b0aaa0;
+  --color-ink-muted: #7a756c;
+  --color-line: #2d2b27;
+
+  --color-pine-50: #16271f;
+  --color-pine-100: #1c3329;
+  --color-pine-200: #285040;
+  --color-pine-600: #2fa878;
+  --color-pine-700: #289268;
+  --color-pine-900: #0f1f17;
+
+  --color-sun-400: #d99a30;
+  --color-sun-500: #c98820;
+
+  --color-ember: #e85d2e;
+}
+
+html {
+  /* Makes the "See How It Works" button glide to its section */
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Subtle dot grid used behind the hero — texture without a gradient wash */
+.dot-grid {
+  background-image: radial-gradient(
+    circle,
+    rgba(27, 26, 24, 0.07) 1px,
+    transparent 1px
+  );
+  background-size: 22px 22px;
+}
+
+/*
+  Scroll-reveal helper.
+  Elements with .reveal start hidden; the <Reveal /> component adds
+  .reveal-visible when they enter the viewport (via IntersectionObserver).
+*/
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.reveal.reveal-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Respect users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
