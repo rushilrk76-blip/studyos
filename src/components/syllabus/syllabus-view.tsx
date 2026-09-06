@@ -11,6 +11,10 @@ import {
   withTopicToggled,
 } from "@/lib/syllabus/progress";
 import { syllabusService } from "@/services";
+import {
+  getSyllabusProgressCloud,
+  toggleSyllabusTopicCloud,
+} from "@/services/cloud-data-service";
 import type {
   SubjectFilter,
   TopicFilter,
@@ -45,18 +49,33 @@ export function SyllabusView() {
   const [subjectFilter, setSubjectFilter] = useState<SubjectFilter>("all");
 
   /* Load saved progress once, on the client. */
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => {
+useEffect(() => {
+  const loadProgress = async () => {
+    const cloudProgress = await getSyllabusProgressCloud();
+
+    if (Object.keys(cloudProgress).length > 0) {
+      setProgress(cloudProgress);
+    } else {
       setProgress(syllabusService.getProgress());
-    });
-    return () => cancelAnimationFrame(frame);
-  }, []);
+    }
+  };
+
+  void loadProgress();
+}, []);
 
   /* Persist every change. */
   useEffect(() => {
     if (progress) syllabusService.saveProgress(progress);
   }, [progress]);
+  const handleToggleTopic = async (topicId: string) => {
+    const currentCompleted = progress?.[topicId] === "completed";
 
+    setProgress((current) =>
+      withTopicToggled(current ?? {}, topicId),
+    );
+
+    await toggleSyllabusTopicCloud(topicId, currentCompleted);
+  };
   /* The syllabus comes from the saved profile (board + stream). */
   const syllabus = useMemo(
     () =>
@@ -193,11 +212,18 @@ export function SyllabusView() {
                 progress={progress}
                 forceOpen={isSearchingOrStatus}
                 defaultOpen={subjectFilter !== "all"}
-                onToggleTopic={(topicId) =>
-                  setProgress((current) =>
-                    withTopicToggled(current ?? {}, topicId),
-                  )
-                }
+onToggleTopic={async (topicId) => {
+  setProgress((current) => {
+    const next = withTopicToggled(current ?? {}, topicId);
+
+    void toggleSyllabusTopicCloud(
+      topicId,
+      current?.[topicId] === "completed",
+    );
+
+    return next;
+  });
+}}
               />
             </Reveal>
           ))}

@@ -1,5 +1,7 @@
+import { saveProfileCloud } from "./cloud-data-service";
+
 import {
-  draftFromProfile,
+
   generateStudentId,
   type OnboardingDraft,
   type StudentProfile,
@@ -10,7 +12,7 @@ import {
   loadDraft,
   loadProfile,
   saveDraft,
-  saveProfile,
+  saveProfile as saveProfileLocal,
 } from "@/lib/student-storage";
 
 /*
@@ -34,9 +36,10 @@ export const studentService = {
   },
 
   /** Persists an updated profile (name, photo, etc.). */
-  saveProfile(profile: StudentProfile): void {
-    saveProfile(profile);
-  },
+async saveProfile(profile: StudentProfile): Promise<void> {
+  saveProfileLocal(profile);
+  await saveProfileCloud(profile);
+},
 
   /** Onboarding draft — survives a refresh mid-setup. */
   getDraft(): OnboardingDraft | null {
@@ -45,7 +48,12 @@ export const studentService = {
 
   /** Prefills the draft from an existing profile (for re-editing). */
   getDraftFromProfile(profile: StudentProfile): OnboardingDraft {
-    return draftFromProfile(profile);
+return {
+  name: profile.name,
+  board: profile.board,
+  stream: profile.stream,
+  photoDataUrl: profile.photoDataUrl,
+};
   },
 
   saveDraft(draft: OnboardingDraft): void {
@@ -66,7 +74,7 @@ export const studentService = {
       ...profile,
       studentId: generateStudentId(profile.board, profile.stream),
     };
-    saveProfile(updated);
+    saveProfileLocal(updated);
     return updated;
   },
 

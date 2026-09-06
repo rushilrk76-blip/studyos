@@ -69,10 +69,45 @@ export async function getProfileCloud(): Promise<StudentProfile | null> {
 }
 
 export async function saveProfileCloud(profile: StudentProfile): Promise<boolean> {
+  console.log("SAVE PROFILE CLOUD CALLED", profile);
+
   const userId = await getUserId();
   if (!userId || !supabase) return false;
 
-  const { error } = await supabase.from("profiles").upsert({
+  // Check whether this profile already exists
+  const { data: existingProfile, error: findError } = await supabase
+    .from("profiles")
+    .select("user_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (findError) {
+    console.error("FIND PROFILE ERROR", findError);
+    return false;
+  }
+
+  // Existing profile: update ONLY normal editable fields
+  if (existingProfile) {
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        name: profile.name,
+        board: profile.board,
+        stream: profile.stream,
+        photo_url: profile.photoDataUrl,
+      })
+      .eq("user_id", userId);
+
+    if (error) {
+      console.error("UPDATE PROFILE ERROR", error);
+      return false;
+    }
+
+    return true;
+  }
+
+  // New profile: student_id can be set during creation
+  const { error } = await supabase.from("profiles").insert({
     user_id: userId,
     name: profile.name,
     board: profile.board,
@@ -81,7 +116,12 @@ export async function saveProfileCloud(profile: StudentProfile): Promise<boolean
     photo_url: profile.photoDataUrl,
   });
 
-  return !error;
+  if (error) {
+    console.error("INSERT PROFILE ERROR", error);
+    return false;
+  }
+
+  return true;
 }
 
 /* ═══════════════════════════════════════════════════
