@@ -20,6 +20,10 @@ import { calculateChapterProgress } from "@/lib/syllabus/progress";
 import type { ConceptProgress } from "@/lib/practice/concept-types";
 import type { TopicProgress } from "@/lib/syllabus/types";
 import { practiceService, syllabusService } from "@/services";
+import {
+  getPracticeProgressCloud,
+  togglePracticeQuestionCloud,
+} from "@/services/cloud-data-service";
 import { useStudent } from "@/components/app/student-context";
 import { Reveal } from "@/components/ui/reveal";
 import { ProgressBar } from "@/components/ui/progress-bar";

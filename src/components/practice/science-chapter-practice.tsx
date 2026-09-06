@@ -18,6 +18,7 @@ import { calculateChapterProgress } from "@/lib/syllabus/progress";
 import type { ConceptProgress } from "@/lib/practice/concept-types";
 import type { TopicProgress } from "@/lib/syllabus/types";
 import { practiceService, syllabusService } from "@/services";
+import { getPracticeProgressCloud, togglePracticeQuestionCloud } from "@/services/cloud-data-service";
 import { useStudent } from "@/components/app/student-context";
 import { Button } from "@/components/ui/button";
 import { ProgressBar } from "@/components/ui/progress-bar";
@@ -43,14 +44,21 @@ export function ScienceChapterPractice({
     {},
   );
 
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => {
-      setQuestions(practiceService.getScienceProgress());
-          setTopics(syllabusService.getProgress());
-    });
-    return () => cancelAnimationFrame(frame);
-  }, []);
+ useEffect(() => {
+  const loadPractice = async () => {
+    const cloudProgress = await getPracticeProgressCloud();
 
+    if (Object.keys(cloudProgress.science).length > 0) {
+      setQuestions(cloudProgress.science);
+    } else {
+      setQuestions(practiceService.getScienceProgress());
+    }
+
+    setTopics(syllabusService.getProgress());
+  };
+
+  void loadPractice();
+}, []);
   useEffect(() => {
     if (questions) practiceService.saveScienceProgress(questions);
   }, [questions]);
@@ -178,11 +186,23 @@ export function ScienceChapterPractice({
                 [category.id]: !map[category.id],
               }))
             }
-            onToggleQuestion={(questionId) =>
-              setQuestions((current) =>
-                withConceptQuestionToggled(current ?? {}, questionId),
-              )
-            }
+           onToggleQuestion={(questionId) =>
+  setQuestions((current) => {
+    const wasCompleted = current?.[questionId] === "completed";
+    const next = withConceptQuestionToggled(
+      current ?? {},
+      questionId,
+    );
+
+    void togglePracticeQuestionCloud(
+      questionId,
+      "science",
+      wasCompleted,
+    );
+
+    return next;
+  })
+}
             onToggleAll={(completed) =>
               setQuestions((current) =>
                 withCategoryToggled(current ?? {}, category, completed),

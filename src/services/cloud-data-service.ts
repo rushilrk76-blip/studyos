@@ -67,14 +67,10 @@ export async function getProfileCloud(): Promise<StudentProfile | null> {
     studentId: data.student_id,
   };
 }
-
 export async function saveProfileCloud(profile: StudentProfile): Promise<boolean> {
-  console.log("SAVE PROFILE CLOUD CALLED", profile);
-
   const userId = await getUserId();
   if (!userId || !supabase) return false;
 
-  // Check whether this profile already exists
   const { data: existingProfile, error: findError } = await supabase
     .from("profiles")
     .select("user_id")
@@ -86,7 +82,6 @@ export async function saveProfileCloud(profile: StudentProfile): Promise<boolean
     return false;
   }
 
-  // Existing profile: update ONLY normal editable fields
   if (existingProfile) {
     const { error } = await supabase
       .from("profiles")
@@ -106,7 +101,6 @@ export async function saveProfileCloud(profile: StudentProfile): Promise<boolean
     return true;
   }
 
-  // New profile: student_id can be set during creation
   const { error } = await supabase.from("profiles").insert({
     user_id: userId,
     name: profile.name,
@@ -123,7 +117,6 @@ export async function saveProfileCloud(profile: StudentProfile): Promise<boolean
 
   return true;
 }
-
 /* ═══════════════════════════════════════════════════
    SYLLABUS PROGRESS
    ═══════════════════════════════════════════════════ */
@@ -212,12 +205,19 @@ export async function togglePracticeQuestionCloud(
       .eq("question_id", questionId);
     return !error;
   } else {
-    const { error } = await supabase.from("practice_progress").insert({
-      user_id: userId,
-      question_id: questionId,
-      practice_type: practiceType,
-    });
-    return !error;
+   const { error } = await supabase.from("practice_progress").upsert(
+  {
+    user_id: userId,
+    question_id: questionId,
+    practice_type: practiceType,
+  },
+  {
+    onConflict: "user_id,question_id",
+    ignoreDuplicates: true,
+  },
+);
+
+return !error;
   }
 }
 
@@ -275,7 +275,11 @@ export async function saveTaskCloud(task: Task): Promise<boolean> {
     completed_at: task.completedAt,
   });
 
-  return !error;
+if (error) {
+  console.error("SAVE TASK CLOUD ERROR", error);
+}
+
+return !error;
 }
 
 export async function deleteTaskCloud(taskId: string): Promise<boolean> {
@@ -393,6 +397,26 @@ export async function saveProjectCloud(project: Project): Promise<boolean> {
     link: project.link,
   });
 
+if (error) {
+  console.error("SAVE PROJECT ERROR", error);
+}
+
+return !error;
+}
+export async function deleteProjectCloud(projectId: string): Promise<boolean> {
+  const userId = await getUserId();
+  if (!userId || !supabase) return false;
+
+  const { error } = await supabase
+    .from("projects")
+    .delete()
+    .eq("id", projectId)
+    .eq("user_id", userId);
+
+  if (error) {
+    console.error("DELETE PROJECT ERROR", error);
+  }
+
   return !error;
 }
 
@@ -430,6 +454,24 @@ export async function saveCertificateCloud(cert: Certificate): Promise<boolean> 
     date: cert.date,
     link: cert.link,
   });
+
+  return !error;
+}
+export async function deleteCertificateCloud(
+  certificateId: string,
+): Promise<boolean> {
+  const userId = await getUserId();
+  if (!userId || !supabase) return false;
+
+  const { error } = await supabase
+    .from("certificates")
+    .delete()
+    .eq("id", certificateId)
+    .eq("user_id", userId);
+
+  if (error) {
+    console.error("DELETE CERTIFICATE ERROR", error);
+  }
 
   return !error;
 }

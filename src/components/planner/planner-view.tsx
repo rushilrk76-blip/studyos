@@ -38,6 +38,11 @@ import {
 } from "@/lib/homework/tasks";
 import { getNextStudyAction } from "@/lib/study-nav";
 import { taskService, syllabusService, practiceService } from "@/services";
+import {
+  getTasksCloud,
+  saveTaskCloud,
+  deleteTaskCloud,
+} from "@/services/cloud-data-service";
 import { useStudent } from "@/components/app/student-context";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
@@ -67,12 +72,19 @@ export function PlannerView() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
 
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => {
+ useEffect(() => {
+  const loadTasks = async () => {
+    const cloudTasks = await getTasksCloud();
+
+    if (cloudTasks.length > 0) {
+      setTasks(cloudTasks);
+    } else {
       setTasks(taskService.getTasks());
-    });
-    return () => cancelAnimationFrame(frame);
-  }, []);
+    }
+  };
+
+  void loadTasks();
+}, []);
 
   const today = todayKey();
 
@@ -85,23 +97,62 @@ export function PlannerView() {
     });
   }, [tasks, typeFilter, subjectFilter]);
 
-  const toggleTask = useCallback((id: string) => {
-    setTasks(taskService.toggleComplete(id));
-  }, []);
+ const toggleTask = useCallback((id: string) => {
+  setTasks((current) => {
+    if (!current) return current;
 
-  const deleteTask = useCallback((id: string) => {
-    setTasks(taskService.deleteTask(id));
-  }, []);
+    const task = current.find((t) => t.id === id);
+    if (!task) return current;
 
-  function handleSubmit(draft: TaskDraft) {
-    if (editing) {
-      setTasks(taskService.updateTask(editing.id, draft));
-    } else {
-      setTasks(taskService.addTask(draft));
+    const updatedTask = {
+      ...task,
+      completed: !task.completed,
+    };
+
+    void saveTaskCloud(updatedTask);
+
+    return current.map((t) =>
+      t.id === id ? updatedTask : t,
+    );
+  });
+}, []);
+
+const deleteTask = useCallback(async (id: string) => {
+  setTasks((current) =>
+    (current ?? []).filter((task) => task.id !== id),
+  );
+
+  await deleteTaskCloud(id);
+}, []);
+ async function handleSubmit(draft: TaskDraft) {
+  if (editing) {
+    const updatedTask = {
+      ...editing,
+      ...draft,
+    };
+
+    setTasks((current) =>
+      (current ?? []).map((task) =>
+        task.id === editing.id ? updatedTask : task,
+      ),
+    );
+
+    await saveTaskCloud(updatedTask);
+   } else {
+    const updatedTasks = taskService.addTask(draft);
+
+    setTasks(updatedTasks);
+
+    const newTask = updatedTasks[0];
+
+    if (newTask) {
+      await saveTaskCloud(newTask);
     }
-    setFormOpen(false);
-    setEditing(null);
   }
+
+  setFormOpen(false);
+  setEditing(null);
+}
 
   if (student.status !== "ready" || !tasks) return <PlannerSkeleton />;
 

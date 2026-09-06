@@ -18,6 +18,7 @@ import {
   todayKey,
 } from "@/lib/homework/tasks";
 import { taskService } from "@/services";
+import { getTasksCloud, saveTaskCloud, deleteTaskCloud } from "@/services/cloud-data-service";
 import { useStudent } from "@/components/app/student-context";
 import { useToast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
@@ -63,18 +64,29 @@ export function HomeworkView() {
   const [editing, setEditing] = useState<Task | null>(null);
 
   /* Load once, on the client. */
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => {
+useEffect(() => {
+  const loadTasks = async () => {
+    const cloudTasks = await getTasksCloud();
+
+    if (cloudTasks.length > 0) {
+      setTasks(cloudTasks);
+    } else {
       setTasks(taskService.getTasks());
-    });
-    return () => cancelAnimationFrame(frame);
-  }, []);
+    }
+  };
+
+  void loadTasks();
+}, []);
 
   /* Persist on every change. */
-  useEffect(() => {
-    if (tasks) taskService.saveTasks(tasks);
-  }, [tasks]);
+useEffect(() => {
+  if (!tasks) return;
 
+
+  for (const task of tasks) {
+    void saveTaskCloud(task);
+  }
+}, [tasks]);
   const today = todayKey();
 
   const subjects = useMemo(
@@ -140,10 +152,11 @@ export function HomeworkView() {
     );
   }
 
-  function deleteTask(id: string) {
-    setTasks((current) => (current ?? []).filter((task) => task.id !== id));
-    toast("Task deleted.");
-  }
+async function deleteTask(id: string) {
+  setTasks((current) => (current ?? []).filter((task) => task.id !== id));
+  await deleteTaskCloud(id);
+  toast("Task deleted.");
+}
 
   const hasAnyTasks = tasks.length > 0;
   const isFiltering =

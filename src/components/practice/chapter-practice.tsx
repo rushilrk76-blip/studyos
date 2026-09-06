@@ -16,6 +16,10 @@ import { calculateChapterProgress } from "@/lib/syllabus/progress";
 import type { QuestionProgress } from "@/lib/practice/types";
 import type { TopicProgress } from "@/lib/syllabus/types";
 import { practiceService, syllabusService } from "@/services";
+import {
+  getPracticeProgressCloud,
+  togglePracticeQuestionCloud,
+} from "@/services/cloud-data-service";
 import { useStudent } from "@/components/app/student-context";
 import { Button } from "@/components/ui/button";
 import { ProgressBar } from "@/components/ui/progress-bar";
@@ -33,13 +37,21 @@ export function ChapterPractice({ chapterId }: { chapterId: string }) {
   const [topics, setTopics] = useState<TopicProgress | null>(null);
   const [openSets, setOpenSets] = useState<Record<string, boolean>>({});
 
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => {
+ useEffect(() => {
+  const loadPractice = async () => {
+    const cloudProgress = await getPracticeProgressCloud();
+
+    if (Object.keys(cloudProgress.maths).length > 0) {
+      setQuestions(cloudProgress.maths);
+    } else {
       setQuestions(practiceService.getMathsProgress());
-          setTopics(syllabusService.getProgress());
-    });
-    return () => cancelAnimationFrame(frame);
-  }, []);
+    }
+
+    setTopics(syllabusService.getProgress());
+  };
+
+  void loadPractice();
+}, []);
 
   /* Save practice progress on every change (its own storage key). */
   useEffect(() => {
@@ -174,11 +186,24 @@ export function ChapterPractice({ chapterId }: { chapterId: string }) {
             onToggleOpen={() =>
               setOpenSets((map) => ({ ...map, [set.id]: !map[set.id] }))
             }
-            onToggleQuestion={(questionId) =>
-              setQuestions((current) =>
-                withQuestionToggled(current ?? {}, questionId),
-              )
-            }
+          onToggleQuestion={(questionId) =>
+  setQuestions((current) => {
+    const wasCompleted = current?.[questionId] === "completed";
+
+    const next = withQuestionToggled(
+      current ?? {},
+      questionId,
+    );
+
+    void togglePracticeQuestionCloud(
+      questionId,
+      "maths",
+      wasCompleted,
+    );
+
+    return next;
+  })
+}
             onToggleAll={(completed) =>
               setQuestions((current) =>
                 withSetToggled(current ?? {}, set, completed),

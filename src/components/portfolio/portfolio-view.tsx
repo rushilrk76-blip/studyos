@@ -30,6 +30,15 @@ import {
   portfolioService,
 } from "@/services";
 
+import {
+  getProjectsCloud,
+   saveProjectCloud,
+   deleteProjectCloud,
+getCertificatesCloud,
+ saveCertificateCloud,
+ deleteCertificateCloud,
+} from "@/services/cloud-data-service";
+
 import type { TopicProgress } from "@/lib/syllabus/types";
 import type { QuestionProgress } from "@/lib/practice/types";
 import type { ConceptProgress } from "@/lib/practice/concept-types";
@@ -68,18 +77,32 @@ export function PortfolioView() {
     id: string;
   } | null>(null);
 
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => {
-      setTopicProgress(syllabusService.getProgress());
-          setQuestionProgress(practiceService.getMathsProgress());
-          setScienceProgress(practiceService.getScienceProgress());
-          setTasks(taskService.getTasks());
-          setResults(examService.getResults());
-          setProjects(portfolioService.getProjects());
-          setCertificates(portfolioService.getCertificates());
-    });
-    return () => cancelAnimationFrame(frame);
-  }, []);
+ useEffect(() => {
+  const loadPortfolio = async () => {
+    setTopicProgress(syllabusService.getProgress());
+    setQuestionProgress(practiceService.getMathsProgress());
+    setScienceProgress(practiceService.getScienceProgress());
+    setTasks(taskService.getTasks());
+    setResults(examService.getResults());
+
+    const cloudProjects = await getProjectsCloud();
+    const cloudCertificates = await getCertificatesCloud();
+
+    setProjects(
+      cloudProjects.length > 0
+        ? cloudProjects
+        : portfolioService.getProjects(),
+    );
+
+    setCertificates(
+      cloudCertificates.length > 0
+        ? cloudCertificates
+        : portfolioService.getCertificates(),
+    );
+  };
+
+  void loadPortfolio();
+}, []);
 
   /* Persist projects/certs on every change. */
   useEffect(() => {
@@ -131,59 +154,88 @@ export function PortfolioView() {
   const unlockedAchievements = summary.achievements.filter((a) => a.unlocked);
 
   /* ── mutations ── */
-  function handleProjectSubmit(draft: ProjectDraft) {
-    setProjects((current) => {
-      const list = current ?? [];
-      if (projectForm.editing) {
-        return list.map((p) =>
-          p.id === projectForm.editing!.id ? { ...p, ...draft } : p,
-        );
-      }
-      return [
-        {
-          id: portfolioService.createProjectId(),
-          ...draft,
-          createdAt: new Date().toISOString(),
-        },
-        ...list,
-      ];
-    });
-    setProjectForm({ open: false, editing: null });
+async function handleProjectSubmit(draft: ProjectDraft) {
+  if (projectForm.editing) {
+    const updatedProject = {
+      ...projectForm.editing,
+      ...draft,
+    };
+
+    setProjects((current) =>
+      (current ?? []).map((p) =>
+        p.id === projectForm.editing!.id ? updatedProject : p,
+      ),
+    );
+
+    await saveProjectCloud(updatedProject);
+  } else {
+    const newProject: Project = {
+      id: portfolioService.createProjectId(),
+      ...draft,
+      createdAt: new Date().toISOString(),
+    };
+
+    setProjects((current) => [newProject, ...(current ?? [])]);
+
+    await saveProjectCloud(newProject);
   }
 
-  function handleCertSubmit(draft: CertificateDraft) {
-    setCertificates((current) => {
-      const list = current ?? [];
-      if (certForm.editing) {
-        return list.map((c) =>
-          c.id === certForm.editing!.id ? { ...c, ...draft } : c,
-        );
-      }
-      return [
-        {
-          id: portfolioService.createCertificateId(),
-          ...draft,
-          createdAt: new Date().toISOString(),
-        },
-        ...list,
-      ];
-    });
-    setCertForm({ open: false, editing: null });
+  setProjectForm({ open: false, editing: null });
+}
+
+ async function handleCertSubmit(draft: CertificateDraft) {
+  if (certForm.editing) {
+    const updatedCertificate = {
+      ...certForm.editing,
+      ...draft,
+    };
+
+    setCertificates((current) =>
+      (current ?? []).map((c) =>
+        c.id === certForm.editing!.id ? updatedCertificate : c,
+      ),
+    );
+
+    await saveCertificateCloud(updatedCertificate);
+  } else {
+    const newCertificate: Certificate = {
+      id: portfolioService.createCertificateId(),
+      ...draft,
+      createdAt: new Date().toISOString(),
+    };
+
+    setCertificates((current) => [
+      newCertificate,
+      ...(current ?? []),
+    ]);
+
+    await saveCertificateCloud(newCertificate);
   }
 
-  function confirmDelete() {
-    if (!deleteTarget) return;
-    if (deleteTarget.type === "project") {
-      setProjects((current) =>
-        (current ?? []).filter((p) => p.id !== deleteTarget.id),
-      );
-    } else {
-      setCertificates((current) =>
-        (current ?? []).filter((c) => c.id !== deleteTarget.id),
-      );
-    }
-    setDeleteTarget(null);
-  }
+  setCertForm({ open: false, editing: null });
+}
+async function confirmDelete() {
+  console.log("CONFIRM DELETE CLICKED");
+
+  if (!deleteTarget) return;
+
+  if (deleteTarget.type === "project") {
+    setProjects((current) =>
+      (current ?? []).filter((p) => p.id !== deleteTarget.id),
+    );
+
+    console.log("DELETING PROJECT ID:", deleteTarget.id);
+    await deleteProjectCloud(deleteTarget.id);
+ } else {
+  setCertificates((current) =>
+    (current ?? []).filter((c) => c.id !== deleteTarget.id),
+  );
+
+  await deleteCertificateCloud(deleteTarget.id);
+}
+
+  setDeleteTarget(null);
+}
 
   return (
     <div className="space-y-8">
@@ -648,7 +700,14 @@ function DeleteConfirmation({
         <p className="mt-2 text-sm text-ink-soft">This action can&apos;t be undone.</p>
         <div className="mt-6 flex justify-center gap-3">
           <Button variant="secondary" size="lg" onClick={onCancel}>Cancel</Button>
-          <Button size="lg" className="bg-ember hover:bg-ember/90" onClick={onConfirm}>
+<Button
+  size="lg"
+  className="bg-ember hover:bg-ember/90"
+  onClick={() => {
+    console.log("DELETE BUTTON CLICKED");
+    onConfirm();
+  }}
+>
             <Trash2 className="size-4" /> Delete
           </Button>
         </div>

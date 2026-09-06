@@ -32,6 +32,11 @@ import {
   toChartData,
 } from "@/lib/marks/results";
 import { examService } from "@/services";
+import {
+  getResultsCloud,
+  saveResultCloud,
+  deleteResultCloud,
+} from "@/services/cloud-data-service";
 import { useStudent } from "@/components/app/student-context";
 import { useToast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
@@ -78,17 +83,26 @@ export function MarksView() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<ExamResult | null>(null);
 
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => {
+ useEffect(() => {
+  const loadResults = async () => {
+    const cloudResults = await getResultsCloud();
+
+    if (cloudResults.length > 0) {
+      setResults(cloudResults);
+    } else {
       setResults(examService.getResults());
-    });
-    return () => cancelAnimationFrame(frame);
-  }, []);
+    }
+  };
 
-  useEffect(() => {
-    if (results) examService.saveResults(results);
-  }, [results]);
+  void loadResults();
+}, []);
+ useEffect(() => {
+  if (!results) return;
 
+  for (const result of results) {
+    void saveResultCloud(result);
+  }
+}, [results]);
   const subjects = useMemo(
     () =>
       student.status === "ready"
@@ -165,10 +179,15 @@ export function MarksView() {
     toast(editing ? "Result updated." : "Result saved.");
   }
 
-  function deleteResult(id: string) {
-    setResults((current) => (current ?? []).filter((result) => result.id !== id));
-    toast("Result deleted.");
-  }
+ async function deleteResult(id: string) {
+  setResults((current) =>
+    (current ?? []).filter((result) => result.id !== id),
+  );
+
+  await deleteResultCloud(id);
+
+  toast("Result deleted.");
+}
 
   const hasResults = results.length > 0;
   const latest = visible[0];
